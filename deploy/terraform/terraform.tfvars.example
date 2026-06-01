@@ -1,0 +1,13 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+project_id = "your-gcp-project-id"
+region     = "us-central1"
+zone       = "us-central1-a"
+
+# Restrict Cloud SQL public IP to your address (find it: curl ifconfig.me).
+# Leave empty to add no authorized networks (then use the Cloud SQL Auth Proxy).
+authorized_networks = ["203.0.113.10/32"]
+
+# Cost knobs — defaults are intentionally small.
+node_machine_type = "e2-small"
+node_count        = 2
+db_tier           = "db-f1-micro"

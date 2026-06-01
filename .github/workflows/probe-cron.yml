@@ -1,0 +1,33 @@
+name: probe-cron
+
+# Drives the probe tick frequently. Vercel Hobby crons run at most once per day,
+# so this scheduled workflow is what gives the live deployment near-real-time
+# probing. Set repo secrets:
+#   PROBE_URL    = https://<your-deployment>/api/probe
+#   CRON_SECRET  = same value as the Vercel env var CRON_SECRET
+on:
+  schedule:
+    - cron: "*/5 * * * *" # every 5 minutes (GitHub's minimum granularity)
+  workflow_dispatch: {}
+
+concurrency:
+  group: probe-cron
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger probe
+        env:
+          PROBE_URL: ${{ secrets.PROBE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$PROBE_URL" ]; then echo "PROBE_URL secret not set"; exit 1; fi
+          code=$(curl -sS -o /tmp/out.json -w "%{http_code}" \
+            -X POST "$PROBE_URL" \
+            -H "Authorization: Bearer $CRON_SECRET")
+          echo "HTTP $code"
+          cat /tmp/out.json
+          test "$code" = "200"

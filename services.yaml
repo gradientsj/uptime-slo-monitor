@@ -1,0 +1,57 @@
+# =============================================================================
+# Service definitions + SLO targets for the Uptime & SLO Monitor.
+#
+# Each service is probed on a schedule. SLIs (availability + latency) are
+# computed over a rolling window and compared against the SLO targets below.
+# Error-budget burn and multi-window multi-burn-rate alerts are derived from
+# these targets. Edit and redeploy to change what is monitored.
+# =============================================================================
+
+# Defaults applied to every service unless overridden per-service.
+defaults:
+  method: GET
+  expect_status: [200, 204]
+  timeout_ms: 5000
+  # Rolling compliance window for SLOs.
+  window_days: 30
+  # Availability SLO: fraction of successful probes over the window.
+  availability_target: 0.99 # 99%  -> 1% error budget
+  # Latency SLO: the given percentile of probe latency must stay under the target.
+  latency_percentile: 95
+  latency_target_ms: 800
+
+services:
+  - name: github-api
+    description: GitHub REST API root
+    url: https://api.github.com
+    latency_target_ms: 600
+    availability_target: 0.995
+
+  - name: github-zen
+    description: GitHub Zen endpoint (plaintext)
+    url: https://api.github.com/zen
+    latency_target_ms: 600
+
+  - name: cloudflare-trace
+    description: Cloudflare edge trace endpoint
+    url: https://www.cloudflare.com/cdn-cgi/trace
+    latency_target_ms: 400
+    availability_target: 0.999
+
+  - name: google-204
+    description: Google connectivity-check endpoint
+    url: https://www.google.com/generate_204
+    expect_status: [204]
+    latency_target_ms: 300
+    availability_target: 0.999
+
+  - name: wikipedia
+    description: Wikipedia portal
+    url: https://www.wikipedia.org
+    latency_target_ms: 700
+
+  - name: personal-site
+    description: stanleyjacob.dev personal site
+    url: https://stanleyjacob.dev
+    latency_target_ms: 800
+    availability_target: 0.99

@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+.github
+.vercel
+**/.terraform
+*.tfstate*
+deploy/terraform
+*.log
+.env
+.env*.local
+README.md
+runbook.md
+grafana
+prometheus
+loadtest

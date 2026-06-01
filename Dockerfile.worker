@@ -1,0 +1,27 @@
+# =============================================================================
+# Standalone probe worker (cron-driven probing + /metrics + /healthz).
+# Runs the TypeScript entrypoint directly via tsx. This is the image deployed
+# to GKE via the Helm chart and run by docker-compose.
+# =============================================================================
+FROM node:20-alpine
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+# Source shared with the web app + the worker entrypoint + config + migrations.
+COPY tsconfig.json ./
+COPY src ./src
+COPY worker ./worker
+COPY scripts ./scripts
+COPY db ./db
+COPY services.yaml ./services.yaml
+
+ENV NODE_ENV=production
+ENV PORT=8080
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:8080/healthz || exit 1
+
+# tsx is resolved from node_modules (installed above, incl. dev deps).
+CMD ["npx", "tsx", "worker/index.ts"]

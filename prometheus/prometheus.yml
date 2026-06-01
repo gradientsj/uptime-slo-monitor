@@ -1,0 +1,26 @@
+global:
+  scrape_interval: 30s
+  scrape_timeout: 10s
+  external_labels:
+    monitor: uptime-slo-monitor
+
+scrape_configs:
+  # The probe worker exposes SLO/burn-rate metrics computed from probe data.
+  - job_name: uptime-worker
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["worker:8080"]
+        labels:
+          source: worker
+
+  # The Next.js app exposes the same metrics (useful when probing runs on Vercel).
+  - job_name: uptime-web
+    metrics_path: /api/metrics
+    static_configs:
+      - targets: ["web:3000"]
+        labels:
+          source: web
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

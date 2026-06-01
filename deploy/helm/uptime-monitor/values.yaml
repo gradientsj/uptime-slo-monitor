@@ -1,0 +1,82 @@
+# Default values for the uptime-monitor chart.
+
+# Container images. Push the images built from Dockerfile / Dockerfile.worker
+# to your registry (e.g. Artifact Registry) and set these.
+image:
+  worker:
+    repository: ghcr.io/REPLACE_ME/uptime-slo-worker
+    tag: latest
+  web:
+    repository: ghcr.io/REPLACE_ME/uptime-slo-web
+    tag: latest
+  pullPolicy: IfNotPresent
+
+# Database connection. Either provide `url` (a Secret is created for you) or set
+# `existingSecret`/`existingSecretKey` to reference a Secret you manage.
+database:
+  url: ""
+  existingSecret: ""
+  existingSecretKey: DATABASE_URL
+
+# Shared secret protecting the web /api/probe endpoint (web only).
+cronSecret: ""
+
+# Probe worker (cron-driven prober + /metrics + /healthz).
+worker:
+  enabled: true
+  replicaCount: 1
+  schedule: "* * * * *"
+  retentionDays: 45
+  resources:
+    requests: { cpu: 50m, memory: 96Mi }
+    limits: { cpu: 250m, memory: 256Mi }
+
+# Optional public status page (Next.js). The worker already exposes metrics, so
+# the web tier is off by default; enable to serve the UI from the cluster.
+web:
+  enabled: false
+  replicaCount: 2
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 250m, memory: 384Mi }
+
+# Run the schema migration as a pre-install/pre-upgrade Job.
+migrations:
+  enabled: true
+
+# Prometheus Operator ServiceMonitor for the worker metrics endpoint.
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  # Match your kube-prometheus-stack release label, e.g. { release: prometheus }
+  labels: {}
+
+ingress:
+  enabled: false
+  className: ""
+  host: status.example.com
+  annotations: {}
+  tls: false
+
+# services.yaml mounted into the pods. Defaults mirror the repo's services.yaml.
+servicesYaml: |
+  defaults:
+    method: GET
+    expect_status: [200, 204]
+    timeout_ms: 5000
+    window_days: 30
+    availability_target: 0.99
+    latency_percentile: 95
+    latency_target_ms: 800
+  services:
+    - name: github-api
+      url: https://api.github.com
+      latency_target_ms: 600
+      availability_target: 0.995
+    - name: cloudflare-trace
+      url: https://www.cloudflare.com/cdn-cgi/trace
+      latency_target_ms: 400
+      availability_target: 0.999
+    - name: personal-site
+      url: https://stanleyjacob.dev
+      latency_target_ms: 800

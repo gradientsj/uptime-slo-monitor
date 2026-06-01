@@ -1,0 +1,38 @@
+{
+  "name": "uptime-slo-monitor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Self-hosted uptime & SLO monitor: probes live endpoints, computes SLIs over rolling windows, tracks error-budget burn, fires multi-window multi-burn-rate alerts, exposes Prometheus metrics, and serves a public status page.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "worker": "tsx worker/index.ts",
+    "worker:dev": "tsx watch worker/index.ts",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "loadtest": "k6 run loadtest/probe_load.js"
+  },
+  "dependencies": {
+    "next": "14.2.35",
+    "postgres": "3.4.4",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "yaml": "2.9.0",
+    "zod": "3.23.8",
+    "node-cron": "3.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.10",
+    "@types/node-cron": "3.0.11",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "tsx": "4.16.2",
+    "typescript": "5.5.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
