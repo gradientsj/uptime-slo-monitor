@@ -50,8 +50,6 @@ services:
     url: https://www.wikipedia.org
     latency_target_ms: 700
 
-  - name: personal-site
-    description: stanleyjacob.dev personal site
-    url: https://stanleyjacob.dev
-    latency_target_ms: 800
-    availability_target: 0.99
+  # personal-site (stanleyjacob.dev) intentionally omitted until the domain is
+  # live; re-add once deployed, or point at status.stanleyjacob.dev to
+  # self-monitor.

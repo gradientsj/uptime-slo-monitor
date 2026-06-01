@@ -77,6 +77,3 @@ servicesYaml: |
       url: https://www.cloudflare.com/cdn-cgi/trace
       latency_target_ms: 400
       availability_target: 0.999
-    - name: personal-site
-      url: https://stanleyjacob.dev
-      latency_target_ms: 800
