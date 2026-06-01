@@ -3,6 +3,7 @@ import { loadServices } from "@/lib/config";
 import { runProbeBatch } from "@/lib/probe";
 import { evaluateAlerts, persistAlertTransitions } from "@/lib/alerts";
 import { pruneOldData } from "@/lib/maintenance";
+import { authorizeProbeRequest } from "@/lib/probeAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,17 +18,15 @@ export const maxDuration = 60;
  *                          or   ?token=<CRON_SECRET>
  */
 async function handle(req: Request): Promise<NextResponse> {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const url = new URL(req.url);
-    const auth = req.headers.get("authorization");
-    const token = url.searchParams.get("token");
-    const ok = auth === `Bearer ${secret}` || token === secret;
-    // Vercel Cron sends its own bearer; accept it when invoked by the platform.
-    const isVercelCron = req.headers.get("x-vercel-cron") != null;
-    if (!ok && !isVercelCron) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
+  const auth = authorizeProbeRequest(req);
+  if (auth === "missing_secret") {
+    return NextResponse.json(
+      { error: "CRON_SECRET is required in production" },
+      { status: 503 }
+    );
+  }
+  if (auth === "unauthorized") {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   const startedAt = Date.now();

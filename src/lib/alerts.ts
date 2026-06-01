@@ -95,27 +95,43 @@ export async function evaluateAlerts(
       windowStats(svc.name, p.longWindowSeconds, svc.latency_percentile),
       windowStats(svc.name, p.shortWindowSeconds, svc.latency_percentile),
     ]);
-    const longBurnRate = burnRate(longStats.errorRate, svc.availability_target);
-    const shortBurnRate = burnRate(shortStats.errorRate, svc.availability_target);
-    const firing =
-      longStats.total >= p.minLongSamples &&
-      shortStats.total >= 1 &&
-      longBurnRate >= p.burnRateThreshold &&
-      shortBurnRate >= p.burnRateThreshold;
-
-    evaluations.push({
-      policy: p.name,
-      severity: p.severity,
-      label: p.label,
-      threshold: p.burnRateThreshold,
-      longBurnRate,
-      shortBurnRate,
-      longStats,
-      shortStats,
-      firing,
-    });
+    evaluations.push(evaluatePolicy(svc, p, longStats, shortStats));
   }
 
+  return summarizeAlertStatus(svc.name, evaluations);
+}
+
+export function evaluatePolicy(
+  svc: ServiceConfig,
+  policy: AlertPolicy,
+  longStats: WindowStats,
+  shortStats: WindowStats
+): PolicyEvaluation {
+  const longBurnRate = burnRate(longStats.errorRate, svc.availability_target);
+  const shortBurnRate = burnRate(shortStats.errorRate, svc.availability_target);
+  const firing =
+    longStats.total >= policy.minLongSamples &&
+    shortStats.total >= 1 &&
+    longBurnRate >= policy.burnRateThreshold &&
+    shortBurnRate >= policy.burnRateThreshold;
+
+  return {
+    policy: policy.name,
+    severity: policy.severity,
+    label: policy.label,
+    threshold: policy.burnRateThreshold,
+    longBurnRate,
+    shortBurnRate,
+    longStats,
+    shortStats,
+    firing,
+  };
+}
+
+export function summarizeAlertStatus(
+  service: string,
+  evaluations: PolicyEvaluation[]
+): ServiceAlertStatus {
   const firingEvals = evaluations.filter((e) => e.firing);
   const highestSeverity = firingEvals.some((e) => e.severity === "page")
     ? "page"
@@ -124,7 +140,7 @@ export async function evaluateAlerts(
       : null;
 
   return {
-    service: svc.name,
+    service,
     firing: firingEvals.length > 0,
     highestSeverity,
     evaluations,

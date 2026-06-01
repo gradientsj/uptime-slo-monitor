@@ -17,6 +17,8 @@ spec:
       labels:
         {{- include "uptime-monitor.labels" . | nindent 8 }}
         app.kubernetes.io/component: web
+      annotations:
+        checksum/config: {{ .Values.servicesYaml | sha256sum }}
     spec:
       containers:
         - name: web
@@ -33,6 +35,19 @@ spec:
                 secretKeyRef:
                   name: {{ include "uptime-monitor.dbSecretName" . }}
                   key: {{ include "uptime-monitor.dbSecretKey" . }}
+            - name: SERVICES_CONFIG
+              value: services.yaml
+            {{ if .Values.cronSecret }}
+            - name: CRON_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "uptime-monitor.cronSecretName" . }}
+                  key: CRON_SECRET
+            {{ end }}
+          volumeMounts:
+            - name: config
+              mountPath: /app/services.yaml
+              subPath: services.yaml
           livenessProbe:
             httpGet: { path: /api/health, port: http }
             initialDelaySeconds: 20
@@ -43,6 +58,10 @@ spec:
             periodSeconds: 15
           resources:
             {{- toYaml .Values.web.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "uptime-monitor.fullname" . }}-config
 ---
 apiVersion: v1
 kind: Service

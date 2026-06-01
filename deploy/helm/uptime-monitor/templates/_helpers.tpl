@@ -28,3 +28,7 @@ helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version }}
 DATABASE_URL
 {{- end -}}
 {{- end -}}
+
+{{- define "uptime-monitor.cronSecretName" -}}
+{{- printf "%s-cron" (include "uptime-monitor.fullname" .) -}}
+{{- end -}}

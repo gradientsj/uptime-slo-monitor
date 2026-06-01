@@ -1,0 +1,5 @@
+services:
+  - name: duplicate-api
+    url: https://example.com/one
+  - name: duplicate-api
+    url: https://example.com/two
