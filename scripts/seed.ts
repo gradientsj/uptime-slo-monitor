@@ -17,7 +17,7 @@ if (!DATABASE_URL) {
 }
 
 const days = Number(process.argv[2] ?? 2);
-const sql = postgres(DATABASE_URL, { max: 1, onnotice: () => {} });
+const sql = postgres(DATABASE_URL, { max: 1, prepare: false, onnotice: () => {} });
 
 // Deterministic PRNG so seeds are reproducible.
 function mulberry32(seed: number) {

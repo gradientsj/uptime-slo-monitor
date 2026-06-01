@@ -14,7 +14,9 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
-const sql = postgres(DATABASE_URL, { max: 1, onnotice: () => {} });
+// prepare:false so this works against a transaction-pooling endpoint
+// (Neon/PgBouncer pooled URL), not just a direct connection.
+const sql = postgres(DATABASE_URL, { max: 1, prepare: false, onnotice: () => {} });
 
 async function main() {
   await sql`
