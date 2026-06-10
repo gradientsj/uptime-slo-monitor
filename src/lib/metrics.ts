@@ -4,6 +4,7 @@ import { evaluateSlo } from "./slo";
 import { evaluateAlerts } from "./alerts";
 import { burnRate } from "./slo";
 import { windowStats } from "./sli";
+import { readTlsStatuses } from "./tls";
 
 /**
  * Renders the Prometheus text exposition for all services. Everything is
@@ -89,6 +90,13 @@ export async function renderMetrics(): Promise<string> {
     "1 if the alert policy is currently firing for the service",
     "gauge"
   );
+  const tlsDays = metric(
+    "tls_days_remaining",
+    "Days until the service TLS certificate expires",
+    "gauge"
+  );
+
+  const tlsByService = await readTlsStatuses();
 
   // Per-service last probe (single round-trip).
   const lastRows = await sql<
@@ -139,6 +147,11 @@ export async function renderMetrics(): Promise<string> {
         `alert_firing${lbl({ service: svc.name, policy: ev.policy, severity: ev.severity })} ${ev.firing ? 1 : 0}`
       );
     }
+
+    const tls = tlsByService.get(svc.name);
+    if (tls?.daysRemaining != null) {
+      tlsDays.samples.push(`tls_days_remaining${l} ${tls.daysRemaining}`);
+    }
   }
 
   return render([
@@ -153,5 +166,6 @@ export async function renderMetrics(): Promise<string> {
     probeTotal,
     probeFailures,
     alertFiring,
+    tlsDays,
   ]);
 }

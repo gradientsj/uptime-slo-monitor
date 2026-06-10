@@ -4,6 +4,7 @@ import { runProbeBatch } from "@/lib/probe";
 import { evaluateAlerts, persistAlertTransitions } from "@/lib/alerts";
 import { pruneOldData } from "@/lib/maintenance";
 import { authorizeProbeRequest } from "@/lib/probeAuth";
+import { recordTlsStatuses } from "@/lib/tls";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +34,14 @@ async function handle(req: Request): Promise<NextResponse> {
   const { services } = loadServices();
   const results = await runProbeBatch(services);
 
+  // Refresh TLS certificate expiry alongside the probes (https services only).
+  let tlsChecked = 0;
+  try {
+    tlsChecked = await recordTlsStatuses(services);
+  } catch {
+    /* non-fatal */
+  }
+
   // Re-evaluate alerts for every service and record any state transitions.
   const transitions: unknown[] = [];
   for (const svc of services) {
@@ -53,6 +62,7 @@ async function handle(req: Request): Promise<NextResponse> {
     ok: true,
     probed: results.length,
     failures: results.filter((r) => !r.ok).length,
+    tlsChecked,
     transitions,
     pruned,
     durationMs: Date.now() - startedAt,

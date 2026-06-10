@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test tests/config.test.ts tests/slo.test.ts tests/alerts.test.ts tests/probeAuth.test.ts tests/probe.test.ts tests/state.test.ts",
+    "test": "tsx --test tests/config.test.ts tests/slo.test.ts tests/alerts.test.ts tests/probeAuth.test.ts tests/probe.test.ts tests/state.test.ts tests/uptime.test.ts tests/incidents.test.ts",
     "typecheck": "tsc --noEmit",
     "worker": "tsx worker/index.ts",
     "worker:dev": "tsx watch worker/index.ts",

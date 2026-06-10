@@ -50,6 +50,9 @@ results are identical regardless of where probing runs.
 | `src/lib/slo.ts` | Error budget, budget consumed/remaining, burn rate |
 | `src/lib/state.ts` | Current-health state machine (decoupled from SLO compliance) |
 | `src/lib/alerts.ts` | Multi-window multi-burn-rate policies + transition logging + webhook push |
+| `src/lib/incidents.ts` | Incident detection (consecutive-failure runs) from probe history |
+| `src/lib/uptime.ts` | Daily uptime cells for the 90-day history strip |
+| `src/lib/tls.ts` | TLS certificate expiry checks per https service |
 | `src/lib/metrics.ts` | Prometheus text exposition |
 | `services.yaml` | Per-service endpoints + SLO targets |
 
@@ -151,6 +154,19 @@ burn-rate alerts (`src/lib/state.ts`). SLO compliance over the rolling window
 is shown separately (the "30d SLO" tag and error-budget bar). A service can be
 operational today while its monthly budget is already spent — the page shows
 both rather than conflating them.
+
+**90-day history & incidents** — each card renders a per-day uptime strip
+(green / yellow / red, gray for days before retention or monitoring began)
+with per-day availability, failures, and p95 in the tooltip. Below the cards,
+an incident log groups runs of **two or more consecutive failed probes** into
+incidents (start, duration, failed-probe count, sample error), computed from
+probe history at read time — no extra bookkeeping, and it covers past data
+retroactively. Ongoing incidents are flagged.
+
+**TLS expiry** — every probe tick also handshakes each https endpoint and
+records certificate expiry (`tls_status` table, migration `0003`). Cards show
+a "TLS Nd" tag (green > 30 days, yellow 14–30, red < 14) and Prometheus
+exposes `tls_days_remaining` per service.
 
 **Error budget** — `budget = 1 − availability_target`. The page shows the
 fraction of that budget remaining.

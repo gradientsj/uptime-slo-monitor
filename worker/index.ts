@@ -18,6 +18,7 @@ import { runProbeBatch } from "../src/lib/probe";
 import { evaluateAlerts, persistAlertTransitions } from "../src/lib/alerts";
 import { renderMetrics } from "../src/lib/metrics";
 import { pruneOldData } from "../src/lib/maintenance";
+import { recordTlsStatuses } from "../src/lib/tls";
 import { sql } from "../src/lib/db";
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -38,6 +39,11 @@ async function tick() {
   try {
     const { services } = loadServices();
     const results = await runProbeBatch(services);
+    try {
+      await recordTlsStatuses(services);
+    } catch (err) {
+      log(`tls check error (non-fatal): ${String(err)}`);
+    }
     let transitions = 0;
     for (const svc of services) {
       const status = await evaluateAlerts(svc);

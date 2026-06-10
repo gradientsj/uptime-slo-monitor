@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import type { DashboardModel, ServiceCardModel } from "@/lib/queries";
+import type { DayCell } from "@/lib/uptime";
+import type { Incident } from "@/lib/incidents";
 
 const POLL_MS = 30_000;
 
@@ -31,7 +33,7 @@ export default function Dashboard({ initial }: { initial: DashboardModel }) {
     };
   }, []);
 
-  const { summary, services, recentAlerts } = data;
+  const { summary, services, incidents, recentAlerts } = data;
   const overall: ServiceCardModel["state"] =
     summary.down > 0 ? "down" : summary.degraded > 0 ? "degraded" : "up";
 
@@ -77,6 +79,8 @@ export default function Dashboard({ initial }: { initial: DashboardModel }) {
       {services.map((svc) => (
         <ServiceCard key={svc.config.name} svc={svc} />
       ))}
+
+      <IncidentLog incidents={incidents} />
 
       {recentAlerts.length > 0 && (
         <section className="alerts-feed">
@@ -142,11 +146,14 @@ function ServiceCard({ svc }: { svc: ServiceCardModel }) {
               ? `${slo.windowDays}d SLO: ${sloBreaches.join(" + ")} over budget`
               : `${slo.windowDays}d SLO met`}
           </span>
+          <TlsTag svc={svc} />
         </div>
         <a className="svc-url" href={svc.config.url} target="_blank" rel="noreferrer">
           {svc.config.url}
         </a>
       </div>
+
+      <UptimeBars uptime={svc.uptime} />
 
       <div className="sparkbar" title="Most recent probes (left = older)">
         {bars.length === 0 ? (
@@ -234,6 +241,118 @@ function ServiceCard({ svc }: { svc: ServiceCardModel }) {
       </div>
     </div>
   );
+}
+
+function TlsTag({ svc }: { svc: ServiceCardModel }) {
+  const tls = svc.tls;
+  if (!tls) return null;
+
+  if (tls.error || tls.daysRemaining == null) {
+    return (
+      <span className="state-tag unknown" title={`TLS check failed: ${tls.error ?? "no certificate data"}`}>
+        TLS ?
+      </span>
+    );
+  }
+
+  const cls = tls.daysRemaining > 30 ? "up" : tls.daysRemaining >= 14 ? "degraded" : "down";
+  const expires = tls.notAfter ? new Date(tls.notAfter).toLocaleDateString() : "?";
+  return (
+    <span
+      className={`state-tag ${cls}`}
+      title={`Certificate expires ${expires}${tls.issuer ? ` · issued by ${tls.issuer}` : ""}`}
+    >
+      TLS {tls.daysRemaining}d
+    </span>
+  );
+}
+
+function UptimeBars({ uptime }: { uptime: ServiceCardModel["uptime"] }) {
+  return (
+    <div className="daybars-wrap">
+      <div className="daybars">
+        {uptime.days.map((d) => (
+          <i key={d.date} className={dayClass(d)} title={dayTitle(d)} />
+        ))}
+      </div>
+      <div className="daybars-caption">
+        <span>{uptime.windowDays} days ago</span>
+        <span>
+          {uptime.availability == null
+            ? "no data"
+            : `${(uptime.availability * 100).toFixed(2)}% uptime (${uptime.windowDays}d)`}
+        </span>
+        <span>Today</span>
+      </div>
+    </div>
+  );
+}
+
+function dayClass(d: DayCell): string {
+  if (d.availability == null) return "empty";
+  if (d.failures === 0) return "ok";
+  return d.availability >= 0.97 ? "warn" : "bad";
+}
+
+function dayTitle(d: DayCell): string {
+  if (d.availability == null) return `${d.date} · no data`;
+  const parts = [
+    d.date,
+    `${(d.availability * 100).toFixed(2)}%`,
+    `${d.failures}/${d.total} failed`,
+  ];
+  if (d.p95_ms != null) parts.push(`p95 ${Math.round(d.p95_ms)}ms`);
+  return parts.join(" · ");
+}
+
+function IncidentLog({ incidents }: { incidents: Incident[] }) {
+  return (
+    <section className="incidents">
+      <h2>Incidents (last 90 days)</h2>
+      {incidents.length === 0 ? (
+        <div className="incident none">
+          No incidents — no service failed two or more probes in a row.
+        </div>
+      ) : (
+        incidents.map((inc, i) => (
+          <div className="incident" key={i}>
+            <span className="ts">
+              {fmtDateTime(inc.startedAt)}
+              {inc.lastFailureAt !== inc.startedAt
+                ? ` → ${fmtDateTime(inc.lastFailureAt)}`
+                : ""}
+            </span>
+            <b>{inc.service}</b>
+            {inc.ongoing ? (
+              <span className="state-tag down">ongoing</span>
+            ) : (
+              <span className="dur">
+                ≥{fmtDuration(inc.durationMinutes)} · {inc.failedProbes} failed
+                probes
+              </span>
+            )}
+            {inc.sampleError && <span className="err">{inc.sampleError}</span>}
+          </div>
+        ))
+      )}
+    </section>
+  );
+}
+
+function fmtDuration(minutes: number): string {
+  if (minutes < 60) return `${Math.max(1, minutes)}m`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
+
+function fmtDateTime(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function Metric({

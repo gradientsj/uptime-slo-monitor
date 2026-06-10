@@ -227,6 +227,45 @@ header.site h1 {
   opacity: 0.4;
 }
 
+.daybars-wrap {
+  margin-top: 14px;
+}
+.daybars {
+  display: flex;
+  gap: 2px;
+  height: 28px;
+  align-items: stretch;
+}
+.daybars i {
+  flex: 1 1 auto;
+  min-width: 2px;
+  border-radius: 2px;
+  background: var(--up);
+  opacity: 0.9;
+  transition: transform 0.06s ease;
+}
+.daybars i.warn {
+  background: var(--degraded);
+}
+.daybars i.bad {
+  background: var(--down);
+}
+.daybars i.empty {
+  background: var(--panel-2);
+}
+.daybars i:hover {
+  transform: scaleY(1.15);
+  opacity: 1;
+}
+.daybars-caption {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
 .budget {
   margin-top: 14px;
 }
@@ -269,6 +308,45 @@ header.site h1 {
   font-weight: 700;
   text-transform: uppercase;
   font-size: 10px;
+}
+
+.incidents {
+  margin-top: 26px;
+}
+.incidents h2 {
+  font-size: 15px;
+}
+.incident {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.incident.none {
+  color: var(--muted);
+  border-bottom: none;
+}
+.incident .ts {
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.incident .dur {
+  color: var(--degraded);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.incident .err {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 380px;
 }
 
 .alerts-feed {

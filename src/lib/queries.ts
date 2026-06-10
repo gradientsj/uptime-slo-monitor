@@ -5,8 +5,13 @@ import {
   recentAlertEvents,
   type ServiceAlertStatus,
 } from "./alerts";
-import { recentProbes, type RecentProbe } from "./sli";
+import { history, recentProbes, type RecentProbe } from "./sli";
 import { deriveCurrentState, type CurrentState } from "./state";
+import { fillDailyCells, overallAvailability, type DayCell } from "./uptime";
+import { recentIncidents, type Incident } from "./incidents";
+import { readTlsStatuses, type TlsCardModel } from "./tls";
+
+const HISTORY_DAYS = 90;
 
 /**
  * Read models for the status page. Aggregates the probe/SLI/SLO/alert layers
@@ -22,6 +27,12 @@ export type ServiceCardModel = {
   slo: SloReport;
   alert: ServiceAlertStatus;
   sparkline: RecentProbe[]; // newest first
+  uptime: {
+    days: DayCell[]; // oldest first, dense (one cell per day)
+    windowDays: number;
+    availability: number | null;
+  };
+  tls: TlsCardModel | null;
 };
 
 export type DashboardModel = {
@@ -35,19 +46,23 @@ export type DashboardModel = {
     sloBreached: number;
   };
   services: ServiceCardModel[];
+  incidents: Incident[];
   recentAlerts: Awaited<ReturnType<typeof recentAlertEvents>>;
 };
 
 export async function getDashboard(): Promise<DashboardModel> {
   const { services } = loadServices();
+  const tlsByService = await readTlsStatuses();
 
   const cards: ServiceCardModel[] = await Promise.all(
     services.map(async (svc) => {
-      const [slo, alert, sparkline] = await Promise.all([
+      const [slo, alert, sparkline, dayBuckets] = await Promise.all([
         evaluateSlo(svc),
         evaluateAlerts(svc),
         recentProbes(svc.name, 60),
+        history(svc.name, HISTORY_DAYS * 86400, HISTORY_DAYS),
       ]);
+      const days = fillDailyCells(dayBuckets, HISTORY_DAYS, new Date());
       const last = sparkline[0] ?? null;
       const state = deriveCurrentState(
         sparkline.map((p) => p.ok),
@@ -66,6 +81,12 @@ export async function getDashboard(): Promise<DashboardModel> {
         slo,
         alert,
         sparkline,
+        uptime: {
+          days,
+          windowDays: HISTORY_DAYS,
+          availability: overallAvailability(days),
+        },
+        tls: tlsByService.get(svc.name) ?? null,
       };
     })
   );
@@ -81,10 +102,16 @@ export async function getDashboard(): Promise<DashboardModel> {
     ).length,
   };
 
+  const [incidents, recentAlerts] = await Promise.all([
+    recentIncidents(HISTORY_DAYS),
+    recentAlertEvents(15),
+  ]);
+
   return {
     generatedAt: new Date().toISOString(),
     summary,
     services: cards,
-    recentAlerts: await recentAlertEvents(15),
+    incidents,
+    recentAlerts,
   };
 }
