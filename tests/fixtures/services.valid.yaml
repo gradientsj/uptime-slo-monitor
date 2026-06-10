@@ -2,6 +2,8 @@ defaults:
   method: POST
   expect_status: [200, 201]
   timeout_ms: 2500
+  retries: 1
+  retry_delay_ms: 10
   window_days: 7
   availability_target: 0.98
   latency_percentile: 90
@@ -16,4 +18,5 @@ services:
   - name: api-two
     url: https://example.com/api-two
     method: HEAD
+    retries: 0
     availability_target: 0.995

@@ -14,6 +14,8 @@ const Defaults = z.object({
   method: z.string().default("GET"),
   expect_status: StatusList.default([200, 204]),
   timeout_ms: z.number().int().positive().default(5000),
+  retries: z.number().int().min(0).max(5).default(2),
+  retry_delay_ms: z.number().int().min(0).max(10000).default(250),
   window_days: z.number().int().positive().default(30),
   availability_target: z.number().gt(0).lt(1).default(0.99),
   latency_percentile: z.number().int().min(1).max(99).default(95),
@@ -29,6 +31,8 @@ const ServiceInput = z.object({
   method: z.string().optional(),
   expect_status: StatusList.optional(),
   timeout_ms: z.number().int().positive().optional(),
+  retries: z.number().int().min(0).max(5).optional(),
+  retry_delay_ms: z.number().int().min(0).max(10000).optional(),
   window_days: z.number().int().positive().optional(),
   availability_target: z.number().gt(0).lt(1).optional(),
   latency_percentile: z.number().int().min(1).max(99).optional(),
@@ -47,6 +51,8 @@ export type ServiceConfig = {
   method: string;
   expect_status: number[];
   timeout_ms: number;
+  retries: number;
+  retry_delay_ms: number;
   window_days: number;
   availability_target: number;
   latency_percentile: number;
@@ -78,6 +84,8 @@ export function loadServices(force = false): LoadedConfig {
       method: s.method ?? defaults.method,
       expect_status: s.expect_status ?? defaults.expect_status,
       timeout_ms: s.timeout_ms ?? defaults.timeout_ms,
+      retries: s.retries ?? defaults.retries,
+      retry_delay_ms: s.retry_delay_ms ?? defaults.retry_delay_ms,
       window_days: s.window_days ?? defaults.window_days,
       availability_target: s.availability_target ?? defaults.availability_target,
       latency_percentile: s.latency_percentile ?? defaults.latency_percentile,

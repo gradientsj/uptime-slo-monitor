@@ -26,6 +26,8 @@ test("loadServices merges defaults with per-service overrides", () => {
     method: "POST",
     expect_status: [202],
     timeout_ms: 2500,
+    retries: 1,
+    retry_delay_ms: 10,
     window_days: 7,
     availability_target: 0.98,
     latency_percentile: 90,
@@ -35,6 +37,8 @@ test("loadServices merges defaults with per-service overrides", () => {
   assert.deepEqual(services[1].expect_status, [200, 201]);
   assert.equal(services[1].availability_target, 0.995);
   assert.equal(services[1].latency_target_ms, 500);
+  assert.equal(services[1].retries, 0);
+  assert.equal(services[1].retry_delay_ms, 10);
 });
 
 test("loadServices rejects duplicate service names", () => {

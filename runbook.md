@@ -10,6 +10,7 @@ on call for this service.
 | Status page shows "Could not load monitor data" | DB unreachable / not migrated | [DB down](#1-database-unreachable) |
 | All services show as `down` simultaneously | Prober not running, or network egress blocked | [No probes](#2-no-recent-probes) |
 | One service `down`, target is actually up | Endpoint/SLO misconfig, or expected status mismatch | [False positive](#3-false-positive-for-one-service) |
+| `degraded`/SLO breached, but every recent probe is green | Error budget spent by past prober noise; target too tight for the cadence | [Budget noise](#3a-slo-breached-but-the-endpoint-looks-healthy) |
 | Page/ticket alert fired | Real burn, or alert tuning | [Alert firing](#4-alert-firing) |
 | `/api/metrics` slow or 5xx | DB slow / overloaded; load beyond budget | [Slow metrics](#5-slow-or-failing-metrics) |
 | Grafana panels empty | Prometheus not scraping / wrong target | [No metrics](#6-grafana-empty) |
@@ -74,6 +75,38 @@ last few minutes; on the page "last probe" is stale.
    `latency_target_ms`.
 5. Redeploy (Vercel) or `helm upgrade` (GKE) / restart the worker to reload
    `services.yaml`.
+
+---
+
+## 3a. SLO breached, but the endpoint looks healthy
+
+**Detect:** the card's current state is `up` and recent probes are green, but
+the "30d SLO" tag shows a breach / the error budget bar is empty.
+
+This is usually *prober noise spending the budget*, not real downtime. From a
+single vantage point, a transient (Actions runner egress reset, DNS blip,
+cold-start fetch hiccup) records as a failed probe — and at a sparse cadence a
+handful of those can spend an entire month's budget.
+
+**Diagnose & recover:**
+1. Check `probe_results` for the failing rows: spread-out single failures with
+   varied errors (`timeout`, `fetch failed (ECONNRESET)`) across *multiple
+   services* at similar times = prober-side noise. Sustained same-service
+   failures = real incident.
+2. Check `probe_results.attempts` on failures: rows recorded with the full
+   retry count mean the endpoint really failed `retries + 1` consecutive
+   fetches; if old rows predate retries (attempts = 1), they may be one-off
+   blips that today would have been absorbed.
+3. **Target too tight for the cadence:** budget in probes =
+   `(1 − target) × samples/window`. If that is fewer than ~10 probes, the
+   target is below the prober's noise floor — lower it in `services.yaml`
+   (see the header comment there).
+4. The breach clears on its own as the rolling window moves past the noisy
+   period. Truncating `probe_results` resets it immediately but loses history.
+
+Note the page intentionally separates the two signals: current state (recent
+probes + firing alerts) vs SLO compliance (rolling window). A service that is
+fine *now* with a spent budget shows `up` + "SLO over budget", not `degraded`.
 
 ---
 

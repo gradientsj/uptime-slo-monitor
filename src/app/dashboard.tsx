@@ -44,6 +44,12 @@ export default function Dashboard({ initial }: { initial: DashboardModel }) {
           : overall === "degraded"
             ? "Degraded performance on one or more services"
             : "Active incident — one or more services down"}
+        {overall === "up" && summary.sloBreached > 0 && (
+          <span className="banner-note">
+            {summary.sloBreached} service{summary.sloBreached > 1 ? "s" : ""}{" "}
+            over the 30-day SLO budget
+          </span>
+        )}
       </div>
 
       <div className="summary">
@@ -61,6 +67,10 @@ export default function Dashboard({ initial }: { initial: DashboardModel }) {
         </span>
         <span className="pill">
           <b style={{ color: "var(--down)" }}>{summary.firingServices}</b> firing
+        </span>
+        <span className="pill">
+          <b style={{ color: "var(--degraded)" }}>{summary.sloBreached}</b> SLO
+          breached
         </span>
       </div>
 
@@ -109,6 +119,11 @@ function ServiceCard({ svc }: { svc: ServiceCardModel }) {
         ? "warn"
         : "";
 
+  const sloBreaches = [
+    !slo.availabilityMet ? "availability" : null,
+    !slo.latencyMet ? "latency" : null,
+  ].filter(Boolean);
+
   // Sparkline expects oldest -> newest left to right.
   const bars = [...sparkline].reverse();
 
@@ -119,6 +134,14 @@ function ServiceCard({ svc }: { svc: ServiceCardModel }) {
           <span className={`dot ${svc.state}`} />
           {svc.config.name}
           <span className={`state-tag ${svc.state}`}>{svc.state}</span>
+          <span
+            className={`state-tag ${sloBreaches.length ? "degraded" : "up"}`}
+            title={`SLO compliance over the rolling ${slo.windowDays}-day window — independent of current status`}
+          >
+            {sloBreaches.length
+              ? `${slo.windowDays}d SLO: ${sloBreaches.join(" + ")} over budget`
+              : `${slo.windowDays}d SLO met`}
+          </span>
         </div>
         <a className="svc-url" href={svc.config.url} target="_blank" rel="noreferrer">
           {svc.config.url}

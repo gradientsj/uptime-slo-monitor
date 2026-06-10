@@ -148,9 +148,34 @@ export function summarizeAlertStatus(
 }
 
 /**
+ * Best-effort push of an alert transition to ALERT_WEBHOOK_URL, if set. The
+ * payload carries both `text` (Slack incoming webhooks) and `content`
+ * (Discord webhooks); each platform ignores the other's field. Never throws
+ * and never blocks alert persistence for more than the 5s timeout.
+ */
+async function notifyWebhook(message: string): Promise<void> {
+  const url = process.env.ALERT_WEBHOOK_URL;
+  if (!url) return;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 5000);
+  try {
+    await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text: message, content: message }),
+      signal: ctrl.signal,
+    });
+  } catch {
+    /* notification is best-effort */
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
  * Reconciles evaluated alert state with what's stored, writing an alert_event
  * row on every firing<->ok transition. Returns the transitions that occurred.
- * "Recorded + shown in UI" alerting: no external push, just durable history.
+ * Transitions are also pushed to ALERT_WEBHOOK_URL when configured.
  */
 export async function persistAlertTransitions(
   status: ServiceAlertStatus
@@ -183,6 +208,7 @@ export async function persistAlertTransitions(
           ${humanWindow(ev, "long")}, ${humanWindow(ev, "short")}, ${message}
         )
       `;
+      await notifyWebhook(`[${status.service}] ${message}`);
     }
 
     await sql`

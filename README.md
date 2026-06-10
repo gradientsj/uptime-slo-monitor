@@ -45,10 +45,11 @@ results are identical regardless of where probing runs.
 
 | Path | What |
 | --- | --- |
-| `src/lib/probe.ts` | Probe one endpoint (timeout, latency, expected status) |
+| `src/lib/probe.ts` | Probe one endpoint (timeout, retries, latency, expected status) |
 | `src/lib/sli.ts` | Availability + latency SLIs over rolling windows; history buckets |
 | `src/lib/slo.ts` | Error budget, budget consumed/remaining, burn rate |
-| `src/lib/alerts.ts` | Multi-window multi-burn-rate policies + transition logging |
+| `src/lib/state.ts` | Current-health state machine (decoupled from SLO compliance) |
+| `src/lib/alerts.ts` | Multi-window multi-burn-rate policies + transition logging + webhook push |
 | `src/lib/metrics.ts` | Prometheus text exposition |
 | `services.yaml` | Per-service endpoints + SLO targets |
 
@@ -104,6 +105,8 @@ defaults:
   latency_percentile: 95
   latency_target_ms: 800
   window_days: 30
+  retries: 2                     # confirm failures before recording them
+  retry_delay_ms: 250
 services:
   - name: github-api
     url: https://api.github.com
@@ -111,12 +114,26 @@ services:
     latency_target_ms: 600
 ```
 
+**Failure confirmation.** Probing from a single vantage point, a one-off
+transient (DNS blip, runner egress reset, cold-start hiccup) is
+indistinguishable from real downtime. A failed attempt is therefore retried
+`retries` times before it counts as a failure; the recorded row keeps the
+attempt count (`probe_results.attempts`).
+
+**Sizing availability targets.** The error budget in *probes* is
+`(1 − target) × samples-per-window`. At ~5–15 min effective cadence
+(~3–9k samples per 30 days), a 99.9% target leaves a budget of only a few
+probes — below the noise floor of any single-vantage prober. Don't set a
+target the probe resolution can't measure; 99.0–99.5% is the honest range
+for this setup.
+
 Environment variables (see [`.env.example`](./.env.example)):
 
 | Var | Purpose |
 | --- | --- |
 | `DATABASE_URL` | Postgres connection (use the **pooled** URL on Vercel) |
 | `CRON_SECRET` | Bearer token required to call `POST /api/probe` |
+| `ALERT_WEBHOOK_URL` | Optional Slack/Discord webhook for alert transitions |
 | `PROBE_SCHEDULE` | Worker cron (default `* * * * *`) |
 | `RETENTION_DAYS` | History retention (default 45) |
 
@@ -127,6 +144,13 @@ Environment variables (see [`.env.example`](./.env.example)):
 **SLIs** — availability = successful probes ÷ total; latency = the configured
 percentile (default p95) of successful-probe latency, both over the rolling
 `window_days`.
+
+**Current status vs SLO compliance** — the headline state on each card
+(up / degraded / down) reflects *now*: recent probe outcomes and firing
+burn-rate alerts (`src/lib/state.ts`). SLO compliance over the rolling window
+is shown separately (the "30d SLO" tag and error-budget bar). A service can be
+operational today while its monthly budget is already spent — the page shows
+both rather than conflating them.
 
 **Error budget** — `budget = 1 − availability_target`. The page shows the
 fraction of that budget remaining.
@@ -146,9 +170,24 @@ quickly:
 | slow-burn-1d | ticket | 3× | 1d / 2h |
 | slow-burn-3d | ticket | 1× | 3d / 6h |
 
-Firing/resolved transitions are written to `alert_events` and shown on the
-status page. (This build records + displays alerts; wiring a Slack/Discord/email
-push is a one-function change in `src/lib/alerts.ts`.)
+Firing/resolved transitions are written to `alert_events`, shown on the
+status page, and — when `ALERT_WEBHOOK_URL` is set — pushed to a webhook. The
+payload carries both `text` and `content`, so Slack incoming webhooks and
+Discord webhooks work without an adapter.
+
+---
+
+## Uptime badges
+
+`GET /api/badge/<service>` renders a shields-style SVG badge with availability
+over the SLO window (green = SLO met, red = over budget), cacheable at the
+edge. Embed it in a README:
+
+```markdown
+![uptime](https://status.stanleyjacob.dev/api/badge/github-api)
+```
+
+`?label=...` overrides the left-hand text.
 
 ---
 

@@ -5,6 +5,14 @@
 # computed over a rolling window and compared against the SLO targets below.
 # Error-budget burn and multi-window multi-burn-rate alerts are derived from
 # these targets. Edit and redeploy to change what is monitored.
+#
+# Sizing availability targets: the error budget in *probes* is
+# (1 - target) x samples-per-window. At the effective cadence here
+# (GitHub Actions */5 cron is throttled to ~15 min => ~2,900 samples/30d),
+# a 99.9% target allows only ~3 failed probes per month — below the noise
+# floor of a single-vantage prober even with retries. Don't set a target the
+# probe resolution can't measure; 99.0–99.5% is the honest range for this
+# setup.
 # =============================================================================
 
 # Defaults applied to every service unless overridden per-service.
@@ -12,6 +20,11 @@ defaults:
   method: GET
   expect_status: [200, 204]
   timeout_ms: 5000
+  # Failure confirmation: a failed attempt is retried this many times (with
+  # retry_delay_ms between attempts) before it is recorded as a failure, so
+  # one-off transients (DNS blip, runner egress reset) don't burn budget.
+  retries: 2
+  retry_delay_ms: 250
   # Rolling compliance window for SLOs.
   window_days: 30
   # Availability SLO: fraction of successful probes over the window.
@@ -36,20 +49,25 @@ services:
     description: Cloudflare edge trace endpoint
     url: https://www.cloudflare.com/cdn-cgi/trace
     latency_target_ms: 400
-    availability_target: 0.999
+    # 99.9% is unmeasurable at this cadence (~3-probe budget/month); see header.
+    availability_target: 0.99
 
   - name: google-204
     description: Google connectivity-check endpoint
     url: https://www.google.com/generate_204
     expect_status: [204]
     latency_target_ms: 300
-    availability_target: 0.999
+    # 99.9% is unmeasurable at this cadence (~3-probe budget/month); see header.
+    availability_target: 0.995
 
   - name: wikipedia
     description: Wikipedia portal
     url: https://www.wikipedia.org
     latency_target_ms: 700
 
-  # personal-site (stanleyjacob.dev) intentionally omitted until the domain is
-  # live; re-add once deployed, or point at status.stanleyjacob.dev to
-  # self-monitor.
+  - name: status-page
+    description: This status page (self-monitor via /api/health)
+    url: https://status.stanleyjacob.dev/api/health
+    expect_status: [200]
+    # Serverless cold start + a DB round trip dominate p95 at this cadence.
+    latency_target_ms: 2000

@@ -11,6 +11,8 @@ const service: ServiceConfig = {
   method: "GET",
   expect_status: [200],
   timeout_ms: 1000,
+  retries: 0,
+  retry_delay_ms: 0,
   window_days: 30,
   availability_target: 0.99,
   latency_percentile: 95,
