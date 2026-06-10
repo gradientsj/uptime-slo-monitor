@@ -24,8 +24,15 @@ jobs:
           PROBE_URL: ${{ secrets.PROBE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          if [ -z "$PROBE_URL" ]; then echo "PROBE_URL secret not set"; exit 1; fi
+          if [ -z "$PROBE_URL" ]; then
+            echo "::error::PROBE_URL repo secret is not set"; exit 1
+          fi
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET repo secret is not set — the probe endpoint will reject this call with 401. Set it to the same value as the Vercel env var: gh secret set CRON_SECRET"
+            exit 1
+          fi
           code=$(curl -sS -o /tmp/out.json -w "%{http_code}" \
+            --retry 2 --retry-delay 5 --max-time 90 \
             -X POST "$PROBE_URL" \
             -H "Authorization: Bearer $CRON_SECRET")
           echo "HTTP $code"
