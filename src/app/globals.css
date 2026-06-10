@@ -90,6 +90,12 @@ header.site h1 {
   font-size: 12px;
   color: var(--muted);
 }
+.banner.stale {
+  font-weight: 400;
+  font-size: 13px;
+  padding: 10px 18px;
+  margin: -14px 0 24px;
+}
 
 .summary {
   display: flex;

@@ -153,7 +153,9 @@ percentile (default p95) of successful-probe latency, both over the rolling
 burn-rate alerts (`src/lib/state.ts`). SLO compliance over the rolling window
 is shown separately (the "30d SLO" tag and error-budget bar). A service can be
 operational today while its monthly budget is already spent — the page shows
-both rather than conflating them.
+both rather than conflating them. If the newest probe is more than an hour
+old, the page shows a stale-data notice rather than silently presenting old
+probe results as the current state.
 
 **90-day history & incidents** — each card renders a per-day uptime strip
 (green / yellow / red, gray for days before retention or monitoring began)

@@ -6,6 +6,9 @@ import type { DayCell } from "@/lib/uptime";
 import type { Incident } from "@/lib/incidents";
 
 const POLL_MS = 30_000;
+// Newest probe older than this ⇒ show the stale-data notice. Generous enough
+// for GitHub Actions cron jitter, tight enough to catch a dead prober.
+const STALE_AFTER_MINUTES = 60;
 
 export default function Dashboard({ initial }: { initial: DashboardModel }) {
   const [data, setData] = useState<DashboardModel>(initial);
@@ -53,6 +56,16 @@ export default function Dashboard({ initial }: { initial: DashboardModel }) {
           </span>
         )}
       </div>
+
+      {data.probeDataAgeMinutes != null &&
+        data.probeDataAgeMinutes > STALE_AFTER_MINUTES && (
+          <div className="banner degraded stale">
+            <span className="dot degraded" />
+            Probe data is {fmtAge(data.probeDataAgeMinutes)} old — the
+            scheduled prober may not be running, so states reflect the last
+            available probes.
+          </div>
+        )}
 
       <div className="summary">
         <span className="pill">
@@ -337,6 +350,12 @@ function IncidentLog({ incidents }: { incidents: Incident[] }) {
       )}
     </section>
   );
+}
+
+function fmtAge(minutes: number): string {
+  if (minutes < 120) return `${minutes} minutes`;
+  const h = Math.round(minutes / 60);
+  return h < 48 ? `${h} hours` : `${Math.round(h / 24)} days`;
 }
 
 function fmtDuration(minutes: number): string {

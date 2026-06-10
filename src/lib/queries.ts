@@ -48,6 +48,10 @@ export type DashboardModel = {
   services: ServiceCardModel[];
   incidents: Incident[];
   recentAlerts: Awaited<ReturnType<typeof recentAlertEvents>>;
+  // Age of the newest probe across all services; null with no data. The UI
+  // shows a stale-data notice when this exceeds its threshold, instead of
+  // silently presenting old probe results as the current state.
+  probeDataAgeMinutes: number | null;
 };
 
 export async function getDashboard(): Promise<DashboardModel> {
@@ -107,11 +111,22 @@ export async function getDashboard(): Promise<DashboardModel> {
     recentAlertEvents(15),
   ]);
 
+  let newestProbeMs: number | null = null;
+  for (const c of cards) {
+    if (!c.lastProbe) continue;
+    const t = new Date(c.lastProbe.ts).getTime();
+    if (newestProbeMs === null || t > newestProbeMs) newestProbeMs = t;
+  }
+
   return {
     generatedAt: new Date().toISOString(),
     summary,
     services: cards,
     incidents,
     recentAlerts,
+    probeDataAgeMinutes:
+      newestProbeMs === null
+        ? null
+        : Math.max(0, Math.round((Date.now() - newestProbeMs) / 60_000)),
   };
 }
